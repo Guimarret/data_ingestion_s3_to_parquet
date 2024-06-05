@@ -1,11 +1,14 @@
-use tokio_stream::StreamExt;
-use aws_config::{meta::region::RegionProviderChain, BehaviorVersion, SdkConfig};
+// use tokio_stream::StreamExt;
+use aws_config::{BehaviorVersion, SdkConfig};
 use std::{fs::File, io::Write, path::PathBuf, process::exit};
 use aws_sdk_s3::Client;
 use clap::Parser;
 use tracing::trace;
 use dotenv::dotenv;
 use std::env;
+use zip::read::ZipArchive;
+use std::path::Path;
+use tokio::io;
 
 #[derive(Debug, Parser)]
 struct Opt {
@@ -46,6 +49,31 @@ async fn main() {
             exit(1);
         }
     }
+    let zip_path = "data/zip/data.zip";
+    let output_dir = "data/unzipped";
+
+    let file = File::open(zip_path);
+
+    let mut archive = ZipArchive::new(file);
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)?;
+        let outpath = match file.enclosed_name() {
+            Some(path) => Path::new(output_dir).join(path),
+            None => continue,
+        };
+
+        if let Some(p) = outpath.parent() {
+            std::fs::create_dir_all(p);
+        }
+
+        let mut outfile = File::create(&outpath);
+        io::copy(&mut file, &mut outfile).await?;
+    }
+
+    println!("All files extracted successfully to {}", output_dir);
+
+    Ok(()).expect("Reason")
 }
 
 // snippet-start:[s3.rust.get_object]
