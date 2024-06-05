@@ -1,5 +1,5 @@
 use tokio_stream::StreamExt;
-use aws_config::{meta::region::RegionProviderChain, BehaviorVersion};
+use aws_config::{meta::region::RegionProviderChain, BehaviorVersion, SdkConfig};
 use std::{fs::File, io::Write, path::PathBuf, process::exit};
 use aws_sdk_s3::Client;
 use clap::Parser;
@@ -34,8 +34,7 @@ async fn main() {
         destination,
     };
 
-    let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
-    let shared_config = aws_config::from_env();
+    let shared_config: SdkConfig = aws_config::load_defaults(BehaviorVersion::v2024_03_28()).await;
     let client = aws_sdk_s3::Client::new(&shared_config);
 
     match get_object(client, opt).await {
