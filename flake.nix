@@ -14,7 +14,15 @@
       {
         defaultPackage = naersk-lib.buildPackage ./.;
         devShell = with pkgs; mkShell {
-          buildInputs = [ cargo rustc rustfmt pre-commit rustPackages.clippy rustup ];
+          buildInputs = 
+          [ 
+            cargo 
+            rustc 
+            rustfmt 
+            pre-commit 
+            rustPackages.clippy 
+            rustup
+          ];
           RUST_SRC_PATH = rustPlatform.rustLibSrc;
           shellHook = ''
                       zsh
