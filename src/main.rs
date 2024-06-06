@@ -51,7 +51,7 @@ async fn main() {
     let file = File::open(zip_path).expect("Failed to open file");
     let mut archive = ZipArchive::new(file).expect("Failed to read zip file");
 
-    for i in 0..archive.len() {
+    for i in 0..archive.len() { 
         let mut file = archive.by_index(i).expect("Archive error");
 
         let outpath = match file.enclosed_name() {
@@ -67,7 +67,6 @@ async fn main() {
 
 }
 
-// snippet-start:[s3.rust.get_object]
 async fn get_object(client: Client, opt: Opt) -> Result<usize, anyhow::Error> {
     trace!("bucket:      {}", opt.bucket);
     trace!("object:      {}", opt.object);
