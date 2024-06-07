@@ -1,12 +1,18 @@
+use ::zip::read::ZipArchive;
 use aws_config::{BehaviorVersion, SdkConfig};
-use std::{fs::File, io::{self, Write}, path::PathBuf, process::exit};
 use aws_sdk_s3::Client;
 use clap::Parser;
-use tracing::trace;
 use dotenv::dotenv;
+use polars::prelude::*;
 use std::env;
-use zip::read::ZipArchive;
 use std::path::Path;
+use std::{
+    fs::File,
+    io::{self, Write},
+    path::PathBuf,
+    process::exit,
+};
+use tracing::trace;
 
 #[derive(Debug, Parser)]
 struct Opt {
@@ -23,35 +29,61 @@ async fn main() {
     tracing_subscriber::fmt::init();
     dotenv().ok();
 
-    let bucket = env::var("BUCKET").expect("BUCKET must be set in .env");
-    let object = env::var("OBJECT").expect("OBJECT must be set in .env");
-    let destination = env::var("DESTINATION").expect("DESTINATION must be set in .env");
-    let destination = PathBuf::from(destination);
+    let unzipped_data = env::var("UNZIPPED_DATA_1").expect("Path or csv not found");
 
-    let opt = Opt {
-        bucket,
-        object,
-        destination,
-    };
+    if Path::new(&unzipped_data).exists() {
+        println!("File {} exists.", unzipped_data);
+        data_filtering(unzipped_data)
+    } else {
+        println!("File {} does not exist.", unzipped_data);
+        let bucket = env::var("BUCKET").expect("BUCKET must be set in .env");
+        let object = env::var("OBJECT").expect("OBJECT must be set in .env");
+        let destination = env::var("DESTINATION").expect("DESTINATION must be set in .env");
+        let destination = PathBuf::from(destination);
 
-    let shared_config: SdkConfig = aws_config::load_defaults(BehaviorVersion::v2024_03_28()).await;
-    let client = aws_sdk_s3::Client::new(&shared_config);
+        let opt = Opt {
+            bucket,
+            object,
+            destination,
+        };
 
-    match get_object(client, opt).await {
-        Ok(bytes) => {
-            println!("Wrote {bytes} bytes");
+        let shared_config: SdkConfig =
+            aws_config::load_defaults(BehaviorVersion::v2024_03_28()).await;
+        let client = aws_sdk_s3::Client::new(&shared_config);
+
+        match get_object(client, opt).await {
+            Ok(bytes) => {
+                println!("Wrote {bytes} bytes");
+            }
+            Err(err) => {
+                eprintln!("Error: {}", err);
+                exit(1);
+            }
         }
-        Err(err) => {
-            eprintln!("Error: {}", err);
-            exit(1);
-        }
+        let zip_path = "data/zip/data.zip";
+        let output_dir = "data/unzipped";
+        unzip(zip_path, output_dir);
+
+        println!("Starting the actual data filtering and nasty codes hehe");
+        data_filtering(unzipped_data)
     }
-    let zip_path = "data/zip/data.zip";
-    let output_dir = "data/unzipped";
+}
+
+fn data_filtering(unzipped_data: String) {
+    let df = CsvReadOptions::default()
+        .try_into_reader_with_file_path(Some(unzipped_data.into()))
+        .unwrap()
+        .finish()
+        .unwrap();
+
+    println!("{}", df);
+}
+
+fn unzip(zip_path: &str, output_dir: &str) {
     let file = File::open(zip_path).expect("Failed to open file");
     let mut archive = ZipArchive::new(file).expect("Failed to read zip file");
 
-    for i in 0..archive.len() { 
+    for i in 0..archive.len() {
         let mut file = archive.by_index(i).expect("Archive error");
 
         let outpath = match file.enclosed_name() {
@@ -64,9 +96,7 @@ async fn main() {
     }
 
     println!("All files extracted successfully to {}", output_dir);
-
 }
-
 async fn get_object(client: Client, opt: Opt) -> Result<usize, anyhow::Error> {
     trace!("bucket:      {}", opt.bucket);
     trace!("object:      {}", opt.object);
