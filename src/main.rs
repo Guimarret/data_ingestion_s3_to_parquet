@@ -75,6 +75,30 @@ fn data_filtering(unzipped_data: String) {
         .unwrap()
         .finish()
         .unwrap();
+    // Extract column names from the DataFrame
+    let column_names: Vec<&str> = df.get_column_names();
+
+    // Define your expected column names
+    let expected_columns = vec![
+        "Date", "NO2", "O3", "PM10", "PM2.5", "Latitude", "Longitude",
+        "station_name", "Wind-Speed (U)", "Wind-Speed (V)", "Dewpoint Temp",
+        "Soil Temp", "Total Percipitation", "Vegitation (High)",
+        "Vegitation (Low)", "Temp", "Relative Humidity", "code", "id"
+    ];
+
+    // Check if all expected columns are present
+    for &col in &expected_columns {
+        if !column_names.contains(&col) {
+            println!("Missing expected column: {}", col);
+        }
+    }
+
+    // Optionally, check if there are extra columns not in the expected list
+    for &col in &column_names {
+        if !expected_columns.contains(&col) {
+            println!("Unexpected column found: {}", col);
+        }
+    }
 
     println!("{}", df);
 }
