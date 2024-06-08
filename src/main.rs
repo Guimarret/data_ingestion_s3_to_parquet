@@ -138,6 +138,9 @@ fn column_filter(unzipped_data: &String) {
     println!("{:?}", filtered_df);
 }
 
+// #TODO make analysis for anonmaly detection using the pollution level
+// #TODO make graphical visualization with plotters
+
 fn unzip(zip_path: &str, output_dir: &str) {
     let file = File::open(zip_path).expect("Failed to open file");
     let mut archive = ZipArchive::new(file).expect("Failed to read zip file");
