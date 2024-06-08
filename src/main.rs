@@ -1,4 +1,3 @@
-use ::zip::read::ZipArchive;
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_sdk_s3::Client;
 use clap::Parser;
@@ -13,6 +12,7 @@ use std::{
     process::exit,
 };
 use tracing::trace;
+use tracing_subscriber::registry::Data;
 
 #[derive(Debug, Parser)]
 struct Opt {
@@ -29,11 +29,11 @@ async fn main() {
     tracing_subscriber::fmt::init();
     dotenv().ok();
 
-    let unzipped_data = env::var("UNZIPPED_DATA_1").expect("Path or csv not found");
+    let unzipped_data = env::var("UNZIPPED_DATA_1").unwrap();
 
     if Path::new(&unzipped_data).exists() {
         println!("File {} exists.", unzipped_data);
-        data_filtering(unzipped_data)
+        column_verifier(&unzipped_data)
     } else {
         println!("File {} does not exist.", unzipped_data);
         let bucket = env::var("BUCKET").expect("BUCKET must be set in .env");
@@ -65,42 +65,77 @@ async fn main() {
         unzip(zip_path, output_dir);
 
         println!("Starting the actual data filtering and nasty codes hehe");
-        data_filtering(unzipped_data)
+        column_verifier(&unzipped_data);
+        column_filter(&unzipped_data);
     }
 }
 
-fn data_filtering(unzipped_data: String) {
+fn column_verifier(unzipped_data: &String) {
     let df = CsvReadOptions::default()
         .try_into_reader_with_file_path(Some(unzipped_data.into()))
         .unwrap()
         .finish()
         .unwrap();
-    // Extract column names from the DataFrame
     let column_names: Vec<&str> = df.get_column_names();
 
-    // Define your expected column names
     let expected_columns = vec![
-        "Date", "NO2", "O3", "PM10", "PM2.5", "Latitude", "Longitude",
-        "station_name", "Wind-Speed (U)", "Wind-Speed (V)", "Dewpoint Temp",
-        "Soil Temp", "Total Percipitation", "Vegitation (High)",
-        "Vegitation (Low)", "Temp", "Relative Humidity", "code", "id"
+        "Date",
+        "NO2",
+        "O3",
+        "PM10",
+        "PM2.5",
+        "Latitude",
+        "Longitude",
+        "station_name",
+        "Wind-Speed (U)",
+        "Wind-Speed (V)",
+        "Dewpoint Temp",
+        "Soil Temp",
+        "Total Percipitation",
+        "Vegitation (High)",
+        "Vegitation (Low)",
+        "Temp",
+        "Relative Humidity",
+        "code",
+        "id",
     ];
 
-    // Check if all expected columns are present
     for &col in &expected_columns {
         if !column_names.contains(&col) {
             println!("Missing expected column: {}", col);
         }
     }
 
-    // Optionally, check if there are extra columns not in the expected list
     for &col in &column_names {
         if !expected_columns.contains(&col) {
             println!("Unexpected column found: {}", col);
         }
     }
+    // println!("{}", df);
+}
 
-    println!("{}", df);
+fn column_filter(unzipped_data: &String) {
+    let df = CsvReadOptions::default()
+        .try_into_reader_with_file_path(Some(unzipped_data.into()))
+        .unwrap()
+        .finish()
+        .unwrap();
+
+    // Define the desired columns
+    let desired_columns = vec![
+        "Date",
+        "NO2",
+        "O3",
+        "PM10",
+        "PM2.5",
+        "Latitude",
+        "Longitude",
+        "station_name",
+    ];
+
+    // let filtered_df = filter_columns(df, &desired_columns);
+    let filtered_df: Result<DataFrame, PolarsError> = df.select(desired_columns);
+    println!("{:?}", filtered_df);
 }
 
 fn unzip(zip_path: &str, output_dir: &str) {
