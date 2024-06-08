@@ -3,6 +3,7 @@ use aws_sdk_s3::Client;
 use clap::Parser;
 use dotenv::dotenv;
 use polars::prelude::*;
+use ::zip::ZipArchive;
 use std::env;
 use std::path::Path;
 use std::{
@@ -12,7 +13,6 @@ use std::{
     process::exit,
 };
 use tracing::trace;
-use tracing_subscriber::registry::Data;
 
 #[derive(Debug, Parser)]
 struct Opt {
