@@ -1,10 +1,9 @@
+use ::zip::ZipArchive;
 use anyhow::Context;
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_sdk_s3::Client;
-use clap::Parser;
 use dotenv::dotenv;
 use polars::prelude::*;
-use ::zip::ZipArchive;
 use std::env;
 use std::path::Path;
 use std::{
@@ -15,13 +14,9 @@ use std::{
 };
 use tracing::trace;
 
-#[derive(Debug, Parser)]
 struct Opt {
-    #[structopt(long)]
     bucket: String,
-    #[structopt(long)]
     object: String,
-    #[structopt(long)]
     destination: PathBuf,
 }
 
@@ -49,7 +44,8 @@ async fn main() {
             destination,
         };
 
-        let shared_config: SdkConfig = aws_config::load_defaults(BehaviorVersion::v2024_03_28()).await;
+        let shared_config: SdkConfig =
+            aws_config::load_defaults(BehaviorVersion::v2024_03_28()).await;
         let client = aws_sdk_s3::Client::new(&shared_config);
 
         match get_object(client, opt).await {
@@ -172,11 +168,19 @@ async fn get_object(client: Client, opt: Opt) -> Result<usize, anyhow::Error> {
         .context("Failed to get object from S3")?;
 
     let mut byte_count = 0_usize;
-    while let Some(bytes) = object.body.try_next().await
-        .context("Failed to read bytes from object stream")? {
+    while let Some(bytes) = object
+        .body
+        .try_next()
+        .await
+        .context("Failed to read bytes from object stream")?
+    {
         let bytes_len = bytes.len();
-        file.write_all(&bytes)
-            .with_context(|| format!("Failed to write bytes to file at {}", opt.destination.display()))?;
+        file.write_all(&bytes).with_context(|| {
+            format!(
+                "Failed to write bytes to file at {}",
+                opt.destination.display()
+            )
+        })?;
         trace!("Intermediate write of {bytes_len}");
         byte_count += bytes_len;
     }
