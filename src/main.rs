@@ -1,3 +1,4 @@
+use anyhow::Context;
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_sdk_s3::Client;
 use clap::Parser;
@@ -33,7 +34,8 @@ async fn main() {
 
     if Path::new(&unzipped_data).exists() {
         println!("File {} exists.", unzipped_data);
-        column_verifier(&unzipped_data)
+        column_verifier(&unzipped_data);
+        column_filter(&unzipped_data);
     } else {
         println!("File {} does not exist.", unzipped_data);
         let bucket = env::var("BUCKET").expect("BUCKET must be set in .env");
@@ -47,8 +49,7 @@ async fn main() {
             destination,
         };
 
-        let shared_config: SdkConfig =
-            aws_config::load_defaults(BehaviorVersion::v2024_03_28()).await;
+        let shared_config: SdkConfig = aws_config::load_defaults(BehaviorVersion::v2024_03_28()).await;
         let client = aws_sdk_s3::Client::new(&shared_config);
 
         match get_object(client, opt).await {
@@ -111,7 +112,6 @@ fn column_verifier(unzipped_data: &String) {
             println!("Unexpected column found: {}", col);
         }
     }
-    // println!("{}", df);
 }
 
 fn column_filter(unzipped_data: &String) {
@@ -121,7 +121,6 @@ fn column_filter(unzipped_data: &String) {
         .finish()
         .unwrap();
 
-    // Define the desired columns
     let desired_columns = vec![
         "Date",
         "NO2",
@@ -133,13 +132,9 @@ fn column_filter(unzipped_data: &String) {
         "station_name",
     ];
 
-    // let filtered_df = filter_columns(df, &desired_columns);
     let filtered_df: Result<DataFrame, PolarsError> = df.select(desired_columns);
     println!("{:?}", filtered_df);
 }
-
-// #TODO make analysis for anonmaly detection using the pollution level
-// #TODO make graphical visualization with plotters
 
 fn unzip(zip_path: &str, output_dir: &str) {
     let file = File::open(zip_path).expect("Failed to open file");
@@ -159,24 +154,29 @@ fn unzip(zip_path: &str, output_dir: &str) {
 
     println!("All files extracted successfully to {}", output_dir);
 }
+
 async fn get_object(client: Client, opt: Opt) -> Result<usize, anyhow::Error> {
     trace!("bucket:      {}", opt.bucket);
     trace!("object:      {}", opt.object);
     trace!("destination: {}", opt.destination.display());
 
-    let mut file = File::create(opt.destination.clone())?;
+    let mut file = File::create(opt.destination.clone())
+        .with_context(|| format!("Failed to create file at {}", opt.destination.display()))?;
 
     let mut object = client
         .get_object()
         .bucket(opt.bucket)
         .key(opt.object)
         .send()
-        .await?;
+        .await
+        .context("Failed to get object from S3")?;
 
     let mut byte_count = 0_usize;
-    while let Some(bytes) = object.body.try_next().await? {
+    while let Some(bytes) = object.body.try_next().await
+        .context("Failed to read bytes from object stream")? {
         let bytes_len = bytes.len();
-        file.write_all(&bytes)?;
+        file.write_all(&bytes)
+            .with_context(|| format!("Failed to write bytes to file at {}", opt.destination.display()))?;
         trace!("Intermediate write of {bytes_len}");
         byte_count += bytes_len;
     }
