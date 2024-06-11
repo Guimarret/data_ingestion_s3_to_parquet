@@ -12,7 +12,7 @@ use std::{
     path::PathBuf,
     process::exit,
 };
-use tracing::trace;
+use tracing::{error, info, trace, warn};
 
 struct Opt {
     bucket: String,
@@ -28,11 +28,11 @@ async fn main() {
     let unzipped_data = env::var("UNZIPPED_DATA_1").unwrap();
 
     if Path::new(&unzipped_data).exists() {
-        println!("File {} exists.", unzipped_data);
+        info!("File {} exists.", unzipped_data);
         column_verifier(&unzipped_data);
         column_filter(&unzipped_data);
     } else {
-        println!("File {} does not exist.", unzipped_data);
+        info!("File {} does not exist.", unzipped_data);
         let bucket = env::var("BUCKET").expect("BUCKET must be set in .env");
         let object = env::var("OBJECT").expect("OBJECT must be set in .env");
         let destination = env::var("DESTINATION").expect("DESTINATION must be set in .env");
@@ -50,10 +50,10 @@ async fn main() {
 
         match get_object(client, opt).await {
             Ok(bytes) => {
-                println!("Wrote {bytes} bytes");
+                info!("Wrote {bytes} bytes");
             }
             Err(err) => {
-                eprintln!("Error: {}", err);
+                error!("Error: {}", err);
                 exit(1);
             }
         }
@@ -61,7 +61,7 @@ async fn main() {
         let output_dir = "data/unzipped";
         unzip(zip_path, output_dir);
 
-        println!("Starting the actual data filtering and nasty codes hehe");
+        info!("Starting the actual data filtering and nasty codes hehe");
         column_verifier(&unzipped_data);
         column_filter(&unzipped_data);
     }
@@ -99,13 +99,13 @@ fn column_verifier(unzipped_data: &String) {
 
     for &col in &expected_columns {
         if !column_names.contains(&col) {
-            println!("Missing expected column: {}", col);
+            warn!("Missing expected column: {}", col);
         }
     }
 
     for &col in &column_names {
         if !expected_columns.contains(&col) {
-            println!("Unexpected column found: {}", col);
+            info!("Unexpected column found: {}", col);
         }
     }
 }
@@ -129,7 +129,7 @@ fn column_filter(unzipped_data: &String) {
     ];
 
     let filtered_df: Result<DataFrame, PolarsError> = df.select(desired_columns);
-    println!("{:?}", filtered_df);
+    info!("{:?}", filtered_df);
 }
 
 fn unzip(zip_path: &str, output_dir: &str) {
@@ -148,7 +148,7 @@ fn unzip(zip_path: &str, output_dir: &str) {
         io::copy(&mut file, &mut outfile).unwrap();
     }
 
-    println!("All files extracted successfully to {}", output_dir);
+    info!("All files extracted successfully to {}", output_dir);
 }
 
 async fn get_object(client: Client, opt: Opt) -> Result<usize, anyhow::Error> {
