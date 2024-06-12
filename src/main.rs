@@ -181,6 +181,7 @@ async fn get_object(client: Client, opt: Opt) -> Result<usize, anyhow::Error> {
                 opt.destination.display()
             )
         })?;
+        file.sync_all().unwrap();
         trace!("Intermediate write of {bytes_len}");
         byte_count += bytes_len;
     }
