@@ -1,3 +1,4 @@
+use tracing_subscriber::registry::Data;
 use ::zip::ZipArchive;
 use anyhow::Context;
 use aws_config::{BehaviorVersion, SdkConfig};
@@ -32,7 +33,10 @@ async fn main() {
     if Path::new(&unzipped_data).exists() {
         info!("File {} exists.", unzipped_data);
         column_verifier(&unzipped_data);
-        column_filter(&unzipped_data);
+        let mut df: DataFrame = column_filter(&unzipped_data).expect("Dataframe passed");
+
+        let mut file = std::fs::File::create("data/datafile.parquet").unwrap();
+        ParquetWriter::new(&mut file).finish(&mut df).unwrap();
     } else {
         info!("File {} does not exist.", unzipped_data);
         let bucket = env::var("BUCKET").expect("BUCKET must be set in .env");
@@ -65,7 +69,10 @@ async fn main() {
 
         info!("Starting the actual data filtering and nasty codes hehe");
         column_verifier(&unzipped_data);
-        column_filter(&unzipped_data);
+        let mut df: DataFrame = column_filter(&unzipped_data).expect("Dataframe passed");
+
+        let mut file = std::fs::File::create("data/datafile.parquet").unwrap();
+        ParquetWriter::new(&mut file).finish(&mut df).unwrap();
     }
 }
 
@@ -117,7 +124,7 @@ fn column_verifier(unzipped_data: &String) {
     }
 }
 
-fn column_filter(unzipped_data: &String) {
+fn column_filter(unzipped_data: &String) -> Result<DataFrame, PolarsError> {
     let df = CsvReadOptions::default()
         .try_into_reader_with_file_path(Some(unzipped_data.into()))
         .unwrap()
@@ -137,6 +144,7 @@ fn column_filter(unzipped_data: &String) {
 
     let filtered_df: Result<DataFrame, PolarsError> = df.select(desired_columns);
     info!("{:?}", filtered_df);
+    return filtered_df;
 }
 
 fn unzip(zip_path: &str, output_dir: &str) {
