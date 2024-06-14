@@ -13,6 +13,7 @@ use std::{
     process::exit,
 };
 use tracing::{error, info, trace, warn};
+use tracing_subscriber::registry::Data;
 
 struct Opt {
     bucket: String,
@@ -22,7 +23,9 @@ struct Opt {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    let subscriber = tracing_subscriber::FmtSubscriber::new();
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+
     dotenv().ok();
 
     let unzipped_data = env::var("UNZIPPED_DATA_1").unwrap();
@@ -96,10 +99,12 @@ fn column_verifier(unzipped_data: &String) {
         "code",
         "id",
     ];
+    let mut all_columns_present = true;
 
     for &col in &expected_columns {
         if !column_names.contains(&col) {
             warn!("Missing expected column: {}", col);
+            all_columns_present = false;
         }
     }
 
@@ -107,6 +112,9 @@ fn column_verifier(unzipped_data: &String) {
         if !expected_columns.contains(&col) {
             info!("Unexpected column found: {}", col);
         }
+    }
+    if all_columns_present {
+        info!("All columns were verified correctly!");
     }
 }
 
