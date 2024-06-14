@@ -1,17 +1,20 @@
-use tracing_subscriber::registry::Data;
 use ::zip::ZipArchive;
 use anyhow::Context;
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_sdk_s3::Client;
 use dotenv::dotenv;
-use polars::prelude::*;
-use std::env;
-use std::path::Path;
+use polars::{
+    error::PolarsError,
+    frame::DataFrame,
+    prelude::{CsvReadOptions, ParquetWriter, SerReader},
+};
 use std::{
     fs::File,
     io::{self, Write},
     path::PathBuf,
     process::exit,
+    path::Path,
+    env
 };
 use tracing::{error, info, trace, warn};
 
