@@ -13,7 +13,6 @@ use std::{
     process::exit,
 };
 use tracing::{error, info, trace, warn};
-use tracing_subscriber::registry::Data;
 
 struct Opt {
     bucket: String,
