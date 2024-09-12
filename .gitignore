@@ -18,3 +18,5 @@ Cargo.lock
 *.csv
 
 poorlycall.txt
+
+*.parquet
